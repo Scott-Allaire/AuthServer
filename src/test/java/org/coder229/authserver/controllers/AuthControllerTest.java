@@ -1,9 +1,9 @@
 package org.coder229.authserver.controllers;
 
 import com.auth0.jwt.JWT;
+import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
-import com.auth0.jwt.interfaces.JWTVerifier;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.coder229.authserver.entities.User;
 import org.coder229.authserver.entities.UserRepository;
@@ -13,36 +13,29 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.web.server.LocalServerPort;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCrypt;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.test.web.reactive.server.FluxExchangeResult;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Mono;
 
 import java.util.UUID;
 
-import static org.hamcrest.CoreMatchers.*;
-import static org.hamcrest.MatcherAssert.*;
-import static org.springframework.boot.test.context.SpringBootTest.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 public class AuthControllerTest {
-
-    @LocalServerPort
-    private int port;
-
-    private RestTemplate restTemplate = new RestTemplate();
     private ObjectMapper objectMapper = new ObjectMapper();
-
     private String username = UUID.randomUUID().toString();
     private String password = "password";
     private User user;
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private WebTestClient webTestClient;
 
     @Value("${authservice.secret}")
     public String SECRET;
@@ -62,28 +55,26 @@ public class AuthControllerTest {
 
     @Test
     public void shouldLoginAndReturnValidToken() throws Exception {
+        JWTVerifier verifier = JWT.require(Algorithm.HMAC256(SECRET))
+                .build();
         LoginForm loginForm = new LoginForm();
         loginForm.setUsername(username);
         loginForm.setPassword(password);
         String body = objectMapper.writeValueAsString(loginForm);
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+        FluxExchangeResult<String> response = webTestClient
+                .post().uri("/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .body(Mono.just(body), String.class)
+                .exchange()
+                .expectStatus().isOk()
+                .returnResult(String.class);
 
-        HttpEntity<String> request = new HttpEntity<>(body, headers);
-
-        String url = "http://localhost:" + port + "/auth/login";
-        ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
-        assertThat(response.getStatusCode(), equalTo(HttpStatus.OK));
-
-        String jwt = response.getBody();
-        System.out.println(jwt);
-
-        JWTVerifier verifier = JWT.require(Algorithm.HMAC256(SECRET))
-                .build();
-
+        String jwt = response.getResponseBody().blockFirst();
+        assertThat(jwt).isNotNull();
         DecodedJWT decoded = verifier.verify(jwt);
-        assertThat(decoded.getSubject(), equalTo(username));
+        assertThat(decoded.getSubject()).isEqualTo(username);
     }
 
     @Test
@@ -93,14 +84,12 @@ public class AuthControllerTest {
         loginForm.setPassword(password);
         String body = objectMapper.writeValueAsString(loginForm);
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        HttpEntity<String> request = new HttpEntity<>(body, headers);
-
-        String url = "http://localhost:" + port + "/auth/login";
-        ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
-        assertThat(response.getStatusCode(), equalTo(HttpStatus.NOT_FOUND));
+        webTestClient.post().uri("/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .body(Mono.just(body), String.class)
+                .exchange()
+                .expectStatus().isNotFound();
     }
 
     @Test
@@ -110,13 +99,23 @@ public class AuthControllerTest {
         loginForm.setPassword("wrong");
         String body = objectMapper.writeValueAsString(loginForm);
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+        webTestClient.post().uri("/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .body(Mono.just(body), String.class)
+                .exchange()
+                .expectStatus().isNotFound();
+    }
 
-        HttpEntity<String> request = new HttpEntity<>(body, headers);
+    @Test
+    public void shouldFailForBadRequest() {
+        String body = "abc";
 
-        String url = "http://localhost:" + port + "/auth/login";
-        ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
-        assertThat(response.getStatusCode(), equalTo(HttpStatus.NOT_FOUND));
+        webTestClient.post().uri("/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .body(Mono.just(body), String.class)
+                .exchange()
+                .expectStatus().isBadRequest();
     }
 }

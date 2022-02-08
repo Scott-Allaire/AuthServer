@@ -1,25 +1,23 @@
 package org.coder229.authserver.config;
 
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
+import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.web.server.SecurityWebFilterChain;
 
 @Configuration
-@EnableWebSecurity
-public class SecurityConfig extends WebSecurityConfigurerAdapter {
+@EnableWebFluxSecurity
+public class SecurityConfig {
 
-    @Override
-    protected void configure(HttpSecurity http) throws Exception {
-        http
-            .csrf().disable()
-            .authorizeRequests()
-                .antMatchers("/", "/home", "/api/login").permitAll()
-                .anyRequest().authenticated()
-            .and()
-            .formLogin()
-                .loginPage("/login").permitAll()
-            .and()
-                .logout().permitAll();
+    @Bean
+    public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
+        http.csrf().disable()
+                .authorizeExchange()
+                .pathMatchers("/health", "/info").permitAll()
+                .pathMatchers("/login").permitAll()
+                .anyExchange().authenticated()
+        ;
+        return http.build();
     }
 }
