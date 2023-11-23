@@ -1,21 +1,26 @@
-package org.coder229.authserver.entities;
+package org.coder229.authserver.persistence;
 
-import javax.persistence.Entity;
-import javax.persistence.Id;
+import jakarta.persistence.*;
 
 @Entity
-public class User {
+@Table(name = "user")
+public class User extends BaseEntity {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     private String username;
     private String password;
     private Boolean enabled;
+    private Boolean verified;
 
-    public User() {}
+    @Override
+    public Long getId() {
+        return id;
+    }
 
-    public User(String username, String password, Boolean enabled) {
-        this.username = username;
-        this.password = password;
-        this.enabled = enabled;
+    public void setId(Long id) {
+        this.id = id;
     }
 
     public String getUsername() {
@@ -40,5 +45,13 @@ public class User {
 
     public void setEnabled(Boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public Boolean getVerified() {
+        return verified;
+    }
+
+    public void setVerified(Boolean verified) {
+        this.verified = verified;
     }
 }

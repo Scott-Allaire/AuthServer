@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <property name="now" value="now()" dbms="mysql,mariadb"/>
+    <changeSet id="initial-roles" author="Scott">
+        <insert tableName="role">
+            <column name="name" value="ADMIN"/>
+            <column name="created">${now}</column>
+            <column name="modified">${now}</column>
+        </insert>
+        <insert tableName="role">
+            <column name="name" value="USER"/>
+            <column name="created">${now}</column>
+            <column name="modified">${now}</column>
+        </insert>
+    </changeSet>
+</databaseChangeLog>
