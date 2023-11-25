@@ -3,7 +3,7 @@
 * Login POST /api/v1/login
   * username
   * password
-* Register POST /register
+* Register POST /api/v1/register
   * username
   * password
 * RefreshToken POST /api/v1/refresh [self]

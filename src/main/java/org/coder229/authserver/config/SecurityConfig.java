@@ -18,9 +18,14 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    AuthService authService) throws Exception {
-        // "/health", "/info", "/api/v1/login", "/api/v1/register"
+        String[] publicPaths = {
+                "/health", "/info",
+                "/api/v1/login",
+                "/api/v1/register",
+                "/api/v1/refresh"
+        };
         http.authorizeRequests()
-                .requestMatchers("/health", "/info", "/api/v1/login", "/api/v1/register")
+                .requestMatchers(publicPaths)
                 .permitAll()
                 .anyRequest()
                 .authenticated()

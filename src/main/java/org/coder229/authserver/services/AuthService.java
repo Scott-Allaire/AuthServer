@@ -5,6 +5,8 @@ import com.auth0.jwt.JWTCreator;
 import com.auth0.jwt.algorithms.Algorithm;
 import jakarta.transaction.Transactional;
 import org.coder229.authserver.model.LoginResponse;
+import org.coder229.authserver.model.RefreshRequest;
+import org.coder229.authserver.model.RefreshResponse;
 import org.coder229.authserver.model.TokenType;
 import org.coder229.authserver.persistence.Token;
 import org.coder229.authserver.persistence.TokenRepository;
@@ -12,6 +14,7 @@ import org.coder229.authserver.persistence.User;
 import org.coder229.authserver.persistence.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
@@ -50,24 +53,46 @@ public class AuthService {
         String hashedPassword = BCrypt.hashpw(password, SALT);
         return userRepository.findByUsernameAndPassword(username, hashedPassword)
                 .map(user -> {
-                    // check to see if user is enabled and verified
+                    // TODO check to see if user is enabled and verified
+                    tokenRepository.deleteAllByUser(user);
 
-                    Instant expiresAt = Instant.now().plus(jwtDuration);
-                    Date expiresAtDate = new Date(expiresAt.getEpochSecond() * 1000);
-                    Algorithm hs256 = Algorithm.HMAC256(SECRET);
+                    Instant accessExpires = Instant.now().plus(jwtDuration);
+                    String accessToken = createAccessToken(user, accessExpires);
+                    saveToken(user, accessToken, TokenType.ACCESS, accessExpires);
 
-                    JWTCreator.Builder builder = JWT.create();
-                    builder.withIssuer(ISSUER);
-                    builder.withExpiresAt(expiresAtDate);
-                    builder.withSubject(user.getUsername());
-
-                    String accessToken = builder.sign(hs256);
-                    saveToken(user, accessToken, TokenType.ACCESS, expiresAt);
+                    Instant refreshExpires = Instant.now().plus(refreshDuration);
                     String refreshToken = UUID.randomUUID().toString();
-                    saveToken(user, refreshToken, TokenType.REFRESH, expiresAt);
+                    saveToken(user, refreshToken, TokenType.REFRESH, refreshExpires);
 
-                    return new LoginResponse(accessToken, refreshToken, expiresAt);
-                }).orElseThrow(() -> new UsernameNotFoundException("User/password not found: " + username));
+                    return new LoginResponse(user.getId(), accessToken, refreshToken, accessExpires);
+                }).orElseThrow(() -> new UsernameNotFoundException("User/password not found: '" + username + "'"));
+    }
+
+    public RefreshResponse refresh(RefreshRequest refreshRequest) {
+        return tokenRepository.findByUserIdAndType(refreshRequest.userId(), TokenType.REFRESH)
+                .filter(token -> token.getExpires().isAfter(Instant.now()))
+                .map(refreshToken -> {
+                    Instant refreshExpires = Instant.now().plus(refreshDuration);
+                    refreshToken.setExpires(refreshExpires);
+
+                    Instant accessExpires = Instant.now().plus(jwtDuration);
+                    String accessToken = createAccessToken(refreshToken.getUser(), accessExpires);
+
+                    return new RefreshResponse(accessToken, accessExpires);
+                })
+                .orElseThrow(() -> new BadCredentialsException("Token not found for user: " + refreshRequest.userId()));
+    }
+
+    private String createAccessToken(User user, Instant expiresAt) {
+        Date expiresAtDate = new Date(expiresAt.getEpochSecond() * 1000);
+        Algorithm hs256 = Algorithm.HMAC256(SECRET);
+
+        JWTCreator.Builder builder = JWT.create();
+        builder.withIssuer(ISSUER);
+        builder.withExpiresAt(expiresAtDate);
+        builder.withSubject(user.getUsername());
+
+        return builder.sign(hs256);
     }
 
     private Token saveToken(User user, String value, TokenType type, Instant expiresAt) {
