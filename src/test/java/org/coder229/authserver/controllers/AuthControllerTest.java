@@ -10,6 +10,7 @@ import org.coder229.authserver.persistence.Token;
 import org.coder229.authserver.persistence.TokenRepository;
 import org.coder229.authserver.persistence.User;
 import org.coder229.authserver.persistence.UserRepository;
+import org.coder229.authserver.utilities.TestUtility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -18,13 +19,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Random;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -41,11 +41,11 @@ public class AuthControllerTest {
     @Autowired
     private TokenRepository tokenRepository;
     @Autowired
+    private TestUtility testUtility;
+    @Autowired
     private MockMvc mockMvc;
     @Value("${authservice.secret}")
     public String SECRET;
-    @Value("${authservice.salt}")
-    public String SALT;
 
     @Nested
     class LoginTests {
@@ -56,7 +56,7 @@ public class AuthControllerTest {
         @BeforeEach
         void setup() {
             username = "username" + new Random().nextInt(1000);
-            user = createUser(username, "password");
+            user = testUtility.createUser(username, "password", List.of(UserRole.USER));
         }
 
         @Test
@@ -133,11 +133,10 @@ public class AuthControllerTest {
                     .andExpect(status().isOk());
 
             LoginRequest loginRequest = new LoginRequest(username, password);
-            MvcResult response = mockMvc.perform(
-                            post("/api/v1/login")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .accept(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(loginRequest)))
+            MvcResult response = mockMvc.perform(post("/api/v1/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .accept(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(loginRequest)))
                     .andExpect(status().isOk())
                     .andReturn();
 
@@ -163,8 +162,8 @@ public class AuthControllerTest {
         @Test
         void refreshWithBadToken() throws Exception {
             String username = "username" + new Random().nextInt(1000);
-            User user = createUser(username, "password");
-            Token token = createToken(user, TokenType.REFRESH, Instant.now().minusSeconds(1));
+            User user = testUtility.createUser(username, "password", List.of(UserRole.USER));
+            Token token = testUtility.createToken(user, TokenType.REFRESH, Instant.now().minusSeconds(1));
 
             RefreshRequest refreshRequest = new RefreshRequest(user.getId(), token.getValue());
             mockMvc.perform(post("/api/v1/refresh")
@@ -174,23 +173,5 @@ public class AuthControllerTest {
                     .andDo(print())
                     .andExpect(status().isUnauthorized());
         }
-    }
-
-    private Token createToken(User user, TokenType tokenType, Instant expires) {
-        Token token = new Token();
-        token.setValue(UUID.randomUUID().toString());
-        token.setType(tokenType);
-        token.setUser(user);
-        token.setExpires(expires);
-        return tokenRepository.save(token);
-    }
-
-    User createUser(String username, String password) {
-        User user = new User();
-        user.setUsername(username);
-        user.setPassword(BCrypt.hashpw(password, SALT));
-        user.setEnabled(true);
-        user.setVerified(true);
-        return userRepository.save(user);
     }
 }

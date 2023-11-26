@@ -8,10 +8,12 @@
   * password
 * RefreshToken POST /api/v1/refresh [self]
   * refreshToken
+* List GET /api/v1/user [admin]
 * Update POST /api/v1/user/{id} [admin]
   * username
   * enabled
   * verified
+  * roles
 * Delete user DELETE /api/v1/user/{1} [admin]
 * Set password POST /api/v1/user/{1}/password [self]
 

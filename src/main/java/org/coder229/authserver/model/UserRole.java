@@ -1,4 +1,4 @@
-package org.coder229.authserver.persistence;
+package org.coder229.authserver.model;
 
 public enum UserRole {
     ADMIN,

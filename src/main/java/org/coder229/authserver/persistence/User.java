@@ -2,6 +2,9 @@ package org.coder229.authserver.persistence;
 
 import jakarta.persistence.*;
 
+import java.util.HashSet;
+import java.util.Set;
+
 @Entity
 @Table(name = "user")
 public class User extends BaseEntity {
@@ -13,6 +16,15 @@ public class User extends BaseEntity {
     private String password;
     private Boolean enabled;
     private Boolean verified;
+
+    @ManyToMany(targetEntity = Role.class, fetch = FetchType.EAGER)
+    @JoinTable(
+            name="user_role",
+            joinColumns=
+            @JoinColumn(name="user_id", referencedColumnName="id"),
+            inverseJoinColumns=
+            @JoinColumn(name="role_id", referencedColumnName="id"))
+    private Set<Role> roles = new HashSet<>();
 
     @Override
     public Long getId() {
@@ -53,5 +65,21 @@ public class User extends BaseEntity {
 
     public void setVerified(Boolean verified) {
         this.verified = verified;
+    }
+
+    public Set<Role> getRoles() {
+        return roles;
+    }
+
+    public void setRoles(Set<Role> roles) {
+        this.roles = roles;
+    }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "id=" + getId() + "," +
+                "username=" + getUsername() + "" +
+                "}";
     }
 }

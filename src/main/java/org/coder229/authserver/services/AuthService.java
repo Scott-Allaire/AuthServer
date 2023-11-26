@@ -2,16 +2,15 @@ package org.coder229.authserver.services;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTCreator;
+import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.interfaces.DecodedJWT;
 import jakarta.transaction.Transactional;
 import org.coder229.authserver.model.LoginResponse;
 import org.coder229.authserver.model.RefreshRequest;
 import org.coder229.authserver.model.RefreshResponse;
 import org.coder229.authserver.model.TokenType;
-import org.coder229.authserver.persistence.Token;
-import org.coder229.authserver.persistence.TokenRepository;
-import org.coder229.authserver.persistence.User;
-import org.coder229.authserver.persistence.UserRepository;
+import org.coder229.authserver.persistence.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -21,8 +20,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Date;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @Transactional
@@ -49,7 +47,10 @@ public class AuthService {
     @Autowired
     private TokenRepository tokenRepository;
 
-    public LoginResponse login(String username, String password) throws NotFoundException {
+    @Autowired
+    private RoleRepository roleRepository;
+
+    public LoginResponse login(String username, String password) {
         String hashedPassword = BCrypt.hashpw(password, SALT);
         return userRepository.findByUsernameAndPassword(username, hashedPassword)
                 .map(user -> {
@@ -102,5 +103,12 @@ public class AuthService {
         token.setValue(value);
         token.setExpires(expiresAt);
         return tokenRepository.save(token);
+    }
+
+    public Optional<User> validateToken(String accessToken) {
+        JWTVerifier verifier = JWT.require(Algorithm.HMAC256(SECRET))
+                .build();
+        DecodedJWT decoded = verifier.verify(accessToken);
+        return userRepository.findByUsername(decoded.getSubject());
     }
 }

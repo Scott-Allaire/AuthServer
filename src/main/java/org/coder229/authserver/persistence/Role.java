@@ -2,6 +2,8 @@ package org.coder229.authserver.persistence;
 
 import jakarta.persistence.*;
 
+import java.util.List;
+
 @Entity
 @Table(name = "role")
 public class Role extends BaseEntity {
@@ -10,6 +12,9 @@ public class Role extends BaseEntity {
     private Long id;
 
     private String name;
+
+    @ManyToMany(mappedBy = "roles", cascade = CascadeType.ALL)
+    private List<User> users;
 
     @Override
     public Long getId() {
@@ -26,5 +31,13 @@ public class Role extends BaseEntity {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public List<User> getUsers() {
+        return users;
+    }
+
+    public void setUsers(List<User> users) {
+        this.users = users;
     }
 }

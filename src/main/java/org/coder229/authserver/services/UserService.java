@@ -6,6 +6,8 @@ import org.coder229.authserver.persistence.User;
 import org.coder229.authserver.persistence.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +23,10 @@ public class UserService {
 
 
     public RegisterResponse register(RegisterRequest registerRequest) {
-        // TODO check for duplicate username
+        if (userRepository.existsByUsername(registerRequest.username())) {
+            throw new DuplicateUserException("Username already used: " + registerRequest.username());
+        }
+
         // TODO check password rules (lower, upper, number, special, 8 chars)
 
         String hashedPassword = BCrypt.hashpw(registerRequest.password(), SALT);
@@ -33,5 +38,9 @@ public class UserService {
         userRepository.save(user);
 
         return new RegisterResponse(user.getUsername(), user.getEnabled(), user.getVerified());
+    }
+
+    public Page<User> getUsers(Pageable pageable) {
+        return userRepository.findAll(pageable);
     }
 }
