@@ -6,40 +6,28 @@ import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import jakarta.transaction.Transactional;
+import org.coder229.authserver.config.ServiceConfig;
 import org.coder229.authserver.model.LoginResponse;
 import org.coder229.authserver.model.RefreshRequest;
 import org.coder229.authserver.model.RefreshResponse;
 import org.coder229.authserver.model.TokenType;
 import org.coder229.authserver.persistence.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.time.Instant;
-import java.util.*;
+import java.util.Date;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @Transactional
 public class AuthService {
-
-    @Value("${authservice.issuer}")
-    public String ISSUER;
-
-    @Value("${authservice.secret}")
-    public String SECRET;
-
-    @Value("${authservice.salt}")
-    public String SALT;
-
-    @Value("${authservice.jwtDuration}")
-    public Duration jwtDuration;
-
-    @Value("${authservice.refreshDuration}")
-    public Duration refreshDuration;
+    @Autowired
+    private ServiceConfig serviceConfig;
 
     @Autowired
     private UserRepository userRepository;
@@ -51,17 +39,17 @@ public class AuthService {
     private RoleRepository roleRepository;
 
     public LoginResponse login(String username, String password) {
-        String hashedPassword = BCrypt.hashpw(password, SALT);
+        String hashedPassword = BCrypt.hashpw(password, serviceConfig.getSalt());
         return userRepository.findByUsernameAndPassword(username, hashedPassword)
                 .map(user -> {
                     // TODO check to see if user is enabled and verified
                     tokenRepository.deleteAllByUser(user);
 
-                    Instant accessExpires = Instant.now().plus(jwtDuration);
+                    Instant accessExpires = Instant.now().plus(serviceConfig.getJwtDuration());
                     String accessToken = createAccessToken(user, accessExpires);
                     saveToken(user, accessToken, TokenType.ACCESS, accessExpires);
 
-                    Instant refreshExpires = Instant.now().plus(refreshDuration);
+                    Instant refreshExpires = Instant.now().plus(serviceConfig.getRefreshDuration());
                     String refreshToken = UUID.randomUUID().toString();
                     saveToken(user, refreshToken, TokenType.REFRESH, refreshExpires);
 
@@ -73,11 +61,11 @@ public class AuthService {
         return tokenRepository.findByUserIdAndType(refreshRequest.userId(), TokenType.REFRESH)
                 .filter(token -> token.getExpires().isAfter(Instant.now()))
                 .map(refreshToken -> {
-                    Instant refreshExpires = Instant.now().plus(refreshDuration);
-                    refreshToken.setExpires(refreshExpires);
-
-                    Instant accessExpires = Instant.now().plus(jwtDuration);
+                    Instant accessExpires = Instant.now().plus(serviceConfig.getJwtDuration());
                     String accessToken = createAccessToken(refreshToken.getUser(), accessExpires);
+
+                    Instant refreshExpires = Instant.now().plus(serviceConfig.getRefreshDuration());
+                    refreshToken.setExpires(refreshExpires);
 
                     return new RefreshResponse(accessToken, accessExpires);
                 })
@@ -86,10 +74,10 @@ public class AuthService {
 
     private String createAccessToken(User user, Instant expiresAt) {
         Date expiresAtDate = new Date(expiresAt.getEpochSecond() * 1000);
-        Algorithm hs256 = Algorithm.HMAC256(SECRET);
+        Algorithm hs256 = Algorithm.HMAC256(serviceConfig.getJwtSecret());
 
         JWTCreator.Builder builder = JWT.create();
-        builder.withIssuer(ISSUER);
+        builder.withIssuer(serviceConfig.getJwtIssuer());
         builder.withExpiresAt(expiresAtDate);
         builder.withSubject(user.getUsername());
 
@@ -106,7 +94,7 @@ public class AuthService {
     }
 
     public Optional<User> validateToken(String accessToken) {
-        JWTVerifier verifier = JWT.require(Algorithm.HMAC256(SECRET))
+        JWTVerifier verifier = JWT.require(Algorithm.HMAC256(serviceConfig.getJwtSecret()))
                 .build();
         DecodedJWT decoded = verifier.verify(accessToken);
         return userRepository.findByUsername(decoded.getSubject());

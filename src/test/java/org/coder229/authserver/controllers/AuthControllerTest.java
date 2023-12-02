@@ -5,6 +5,7 @@ import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.coder229.authserver.config.ServiceConfig;
 import org.coder229.authserver.model.*;
 import org.coder229.authserver.persistence.Token;
 import org.coder229.authserver.persistence.TokenRepository;
@@ -15,7 +16,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
@@ -44,8 +44,8 @@ public class AuthControllerTest {
     private TestUtility testUtility;
     @Autowired
     private MockMvc mockMvc;
-    @Value("${authservice.secret}")
-    public String SECRET;
+    @Autowired
+    public ServiceConfig serviceConfig;
 
     @Nested
     class LoginTests {
@@ -61,7 +61,7 @@ public class AuthControllerTest {
 
         @Test
         void shouldLoginAndReturnValidToken() throws Exception {
-            JWTVerifier verifier = JWT.require(Algorithm.HMAC256(SECRET))
+            JWTVerifier verifier = JWT.require(Algorithm.HMAC256(serviceConfig.getJwtSecret()))
                     .build();
             LoginRequest loginRequest = new LoginRequest(username, password);
 
@@ -120,7 +120,7 @@ public class AuthControllerTest {
     class RefreshTests {
         @Test
         void refresh() throws Exception {
-            JWTVerifier verifier = JWT.require(Algorithm.HMAC256(SECRET))
+            JWTVerifier verifier = JWT.require(Algorithm.HMAC256(serviceConfig.getJwtSecret()))
                     .build();
             String username = "username" + new Random().nextInt(1000);
             String password = "password";

@@ -1,11 +1,11 @@
 package org.coder229.authserver.services;
 
+import org.coder229.authserver.config.ServiceConfig;
 import org.coder229.authserver.model.RegisterRequest;
 import org.coder229.authserver.model.RegisterResponse;
 import org.coder229.authserver.persistence.User;
 import org.coder229.authserver.persistence.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.bcrypt.BCrypt;
@@ -15,8 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class UserService {
-    @Value("${authservice.salt}")
-    public String SALT;
+    @Autowired
+    private ServiceConfig serviceConfig;
 
     @Autowired
     private UserRepository userRepository;
@@ -29,7 +29,7 @@ public class UserService {
 
         // TODO check password rules (lower, upper, number, special, 8 chars)
 
-        String hashedPassword = BCrypt.hashpw(registerRequest.password(), SALT);
+        String hashedPassword = BCrypt.hashpw(registerRequest.password(), serviceConfig.getSalt());
         User user = new User();
         user.setUsername(registerRequest.username());
         user.setPassword(hashedPassword);

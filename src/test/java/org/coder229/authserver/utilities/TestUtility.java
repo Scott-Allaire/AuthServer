@@ -3,11 +3,11 @@ package org.coder229.authserver.utilities;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTCreator;
 import com.auth0.jwt.algorithms.Algorithm;
+import org.coder229.authserver.config.ServiceConfig;
 import org.coder229.authserver.model.TokenType;
 import org.coder229.authserver.model.UserRole;
 import org.coder229.authserver.persistence.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,12 +22,8 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class TestUtility {
-
-    @Value("${authservice.salt}")
-    public String SALT;
-    @Value("${authservice.secret}")
-    public String SECRET;
-
+    @Autowired
+    private ServiceConfig serviceConfig;
     @Autowired
     private UserRepository userRepository;
     @Autowired
@@ -54,7 +50,7 @@ public class TestUtility {
     }
 
     private String createJwt(User user, Instant expires) {
-        Algorithm hs256 = Algorithm.HMAC256(SECRET);
+        Algorithm hs256 = Algorithm.HMAC256(serviceConfig.getJwtSecret());
 
         JWTCreator.Builder builder = JWT.create();
         builder.withIssuer("testutility");
@@ -67,7 +63,7 @@ public class TestUtility {
     private User createUser(String username, String password) {
         User user = new User();
         user.setUsername(username);
-        user.setPassword(BCrypt.hashpw(password, SALT));
+        user.setPassword(BCrypt.hashpw(password, serviceConfig.getSalt()));
         user.setEnabled(true);
         user.setVerified(true);
         return userRepository.save(user);

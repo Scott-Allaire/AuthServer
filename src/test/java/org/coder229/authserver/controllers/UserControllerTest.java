@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.coder229.authserver.model.*;
 import org.coder229.authserver.persistence.Token;
 import org.coder229.authserver.persistence.User;
-import org.coder229.authserver.persistence.UserRepository;
 import org.coder229.authserver.utilities.TestUtility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
@@ -13,7 +12,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
@@ -38,15 +36,9 @@ class UserControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
     @Autowired
-    private UserRepository userRepository;
-    @Autowired
     private TestUtility testUtility;
     @Autowired
     private MockMvc mockMvc;
-    @Value("${authservice.secret}")
-    public String SECRET;
-    @Value("${authservice.salt}")
-    public String SALT;
 
     @Nested
     class RegisterTests {
