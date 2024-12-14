@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
@@ -20,24 +21,23 @@ public class WebSecurityConfig {
                                                    AuthService authService) throws Exception {
         String[] publicPaths = {
                 "/health", "/info",
-                "/api/v1/login",
                 "/api/v1/register",
-                "/api/v1/refresh"
+                "/api/v1/auth/login",
+                "/api/v1/auth/refresh"
         };
-        http.authorizeRequests()
+
+        http.authorizeHttpRequests(authorize -> authorize
                 .requestMatchers(publicPaths)
                 .permitAll()
                 .anyRequest()
-                .authenticated()
-            .and()
-                .exceptionHandling()
-                .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
-            .and()
-                .sessionManagement()
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            .and()
-                .addFilterBefore(new AuthenticationFilter(authService), UsernamePasswordAuthenticationFilter.class)
-                .csrf().disable();
+                .authenticated())
+                .exceptionHandling(security -> security
+                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .csrf(AbstractHttpConfigurer::disable)
+                .addFilterBefore(new AuthenticationFilter(authService), UsernamePasswordAuthenticationFilter.class);
+
         return http.build();
     }
 }

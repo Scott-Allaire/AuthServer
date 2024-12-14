@@ -26,6 +26,7 @@
 * Updated
 * Verified
 * Enabled
+* Expires
 
 ### Tokens
 * ID

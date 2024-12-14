@@ -7,12 +7,11 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import jakarta.transaction.Transactional;
 import org.coder229.authserver.config.ServiceConfig;
-import org.coder229.authserver.model.LoginResponse;
-import org.coder229.authserver.model.RefreshRequest;
-import org.coder229.authserver.model.RefreshResponse;
-import org.coder229.authserver.model.TokenType;
-import org.coder229.authserver.persistence.*;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.coder229.authserver.model.*;
+import org.coder229.authserver.persistence.Token;
+import org.coder229.authserver.persistence.TokenRepository;
+import org.coder229.authserver.persistence.User;
+import org.coder229.authserver.persistence.UserRepository;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCrypt;
@@ -21,55 +20,51 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Optional;
-import java.util.UUID;
 
 @Service
 @Transactional
 public class AuthService {
-    @Autowired
-    private ServiceConfig serviceConfig;
+    private final ServiceConfig serviceConfig;
+    private final UserRepository userRepository;
+    private final TokenRepository tokenRepository;
 
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private TokenRepository tokenRepository;
-
-    @Autowired
-    private RoleRepository roleRepository;
+    public AuthService(ServiceConfig serviceConfig,
+                       UserRepository userRepository,
+                       TokenRepository tokenRepository) {
+        this.serviceConfig = serviceConfig;
+        this.userRepository = userRepository;
+        this.tokenRepository = tokenRepository;
+    }
 
     public LoginResponse login(String username, String password) {
         String hashedPassword = BCrypt.hashpw(password, serviceConfig.getSalt());
         return userRepository.findByUsernameAndPassword(username, hashedPassword)
                 .map(user -> {
-                    // TODO check to see if user is enabled and verified
+                    // TODO check to see if user is enabled, verified and not expired
                     tokenRepository.deleteAllByUser(user);
 
-                    Instant accessExpires = Instant.now().plus(serviceConfig.getJwtDuration());
+                    Instant accessExpires = Instant.now().plus(serviceConfig.getJwtExpiration());
                     String accessToken = createAccessToken(user, accessExpires);
                     saveToken(user, accessToken, TokenType.ACCESS, accessExpires);
 
-                    Instant refreshExpires = Instant.now().plus(serviceConfig.getRefreshDuration());
-                    String refreshToken = UUID.randomUUID().toString();
-                    saveToken(user, refreshToken, TokenType.REFRESH, refreshExpires);
-
-                    return new LoginResponse(user.getId(), accessToken, refreshToken, accessExpires);
+                    return new LoginResponse(user.getId(), accessToken, accessExpires);
                 }).orElseThrow(() -> new UsernameNotFoundException("User/password not found: '" + username + "'"));
     }
 
     public RefreshResponse refresh(RefreshRequest refreshRequest) {
-        return tokenRepository.findByUserIdAndType(refreshRequest.userId(), TokenType.REFRESH)
+        return tokenRepository.findByUserIdAndType(refreshRequest.userId(), TokenType.ACCESS)
                 .filter(token -> token.getExpires().isAfter(Instant.now()))
-                .map(refreshToken -> {
-                    Instant accessExpires = Instant.now().plus(serviceConfig.getJwtDuration());
-                    String accessToken = createAccessToken(refreshToken.getUser(), accessExpires);
-
-                    Instant refreshExpires = Instant.now().plus(serviceConfig.getRefreshDuration());
-                    refreshToken.setExpires(refreshExpires);
+                .map( existingToken -> {
+                    Instant accessExpires = Instant.now().plus(serviceConfig.getJwtExpiration());
+                    String accessToken = createAccessToken(existingToken.getUser(), accessExpires);
 
                     return new RefreshResponse(accessToken, accessExpires);
                 })
                 .orElseThrow(() -> new BadCredentialsException("Token not found for user: " + refreshRequest.userId()));
+    }
+
+    public void logout(String accessToken) {
+        tokenRepository.deleteByValueAndType(accessToken, TokenType.ACCESS);
     }
 
     private String createAccessToken(User user, Instant expiresAt) {
@@ -97,6 +92,10 @@ public class AuthService {
         JWTVerifier verifier = JWT.require(Algorithm.HMAC256(serviceConfig.getJwtSecret()))
                 .build();
         DecodedJWT decoded = verifier.verify(accessToken);
-        return userRepository.findByUsername(decoded.getSubject());
+
+        return tokenRepository.findByValueAndType(accessToken, TokenType.ACCESS)
+                .flatMap(token -> {
+                    return userRepository.findByUsername(decoded.getSubject());
+                });
     }
 }

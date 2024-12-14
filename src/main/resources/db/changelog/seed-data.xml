@@ -6,15 +6,15 @@
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
     <property name="now" value="now()" dbms="mysql,mariadb"/>
     <changeSet id="initial-roles" author="Scott">
-        <insert tableName="role">
+        <insert tableName="auth_role">
             <column name="name" value="ADMIN"/>
             <column name="created">${now}</column>
-            <column name="modified">${now}</column>
+            <column name="updated">${now}</column>
         </insert>
-        <insert tableName="role">
+        <insert tableName="auth_role">
             <column name="name" value="USER"/>
             <column name="created">${now}</column>
-            <column name="modified">${now}</column>
+            <column name="updated">${now}</column>
         </insert>
     </changeSet>
 </databaseChangeLog>

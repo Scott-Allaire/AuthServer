@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -56,7 +57,7 @@ public class AuthControllerTest {
         @BeforeEach
         void setup() {
             username = "username" + new Random().nextInt(1000);
-            user = testUtility.createUser(username, "password", List.of(UserRole.USER));
+            user = testUtility.getOrCreateUser(username, "password", List.of(UserRole.USER));
         }
 
         @Test
@@ -65,7 +66,7 @@ public class AuthControllerTest {
                     .build();
             LoginRequest loginRequest = new LoginRequest(username, password);
 
-            MvcResult response = mockMvc.perform(post("/api/v1/login")
+            MvcResult response = mockMvc.perform(post("/api/v1/auth/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .accept(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(loginRequest)))
@@ -85,7 +86,7 @@ public class AuthControllerTest {
             LoginRequest loginRequest = new LoginRequest("unknown", password);
             String body = objectMapper.writeValueAsString(loginRequest);
 
-            mockMvc.perform(post("/api/v1/login")
+            mockMvc.perform(post("/api/v1/auth/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .accept(MediaType.APPLICATION_JSON)
                             .content(body))
@@ -97,7 +98,7 @@ public class AuthControllerTest {
             LoginRequest loginRequest = new LoginRequest(username, "wrong");
             String body = objectMapper.writeValueAsString(loginRequest);
 
-            mockMvc.perform(post("/api/v1/login")
+            mockMvc.perform(post("/api/v1/auth/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .accept(MediaType.APPLICATION_JSON)
                             .content(body))
@@ -108,7 +109,7 @@ public class AuthControllerTest {
         void shouldFailForBadRequest() throws Exception {
             String body = "abc";
 
-            mockMvc.perform(post("/api/v1/login")
+            mockMvc.perform(post("/api/v1/auth/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .accept(MediaType.APPLICATION_JSON)
                             .content(body))
@@ -133,7 +134,7 @@ public class AuthControllerTest {
                     .andExpect(status().isOk());
 
             LoginRequest loginRequest = new LoginRequest(username, password);
-            MvcResult response = mockMvc.perform(post("/api/v1/login")
+            MvcResult response = mockMvc.perform(post("/api/v1/auth/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .accept(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(loginRequest)))
@@ -143,8 +144,8 @@ public class AuthControllerTest {
             String body = response.getResponse().getContentAsString();
             LoginResponse loginResponse = objectMapper.readValue(body, LoginResponse.class);
 
-            RefreshRequest refreshRequest = new RefreshRequest(loginResponse.id(), loginResponse.refreshToken());
-            response = mockMvc.perform(post("/api/v1/refresh")
+            RefreshRequest refreshRequest = new RefreshRequest(loginResponse.id(), loginResponse.accessToken());
+            response = mockMvc.perform(post("/api/v1/auth/refresh")
                             .contentType(MediaType.APPLICATION_JSON)
                             .accept(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(refreshRequest)))
@@ -162,16 +163,56 @@ public class AuthControllerTest {
         @Test
         void refreshWithBadToken() throws Exception {
             String username = "username" + new Random().nextInt(1000);
-            User user = testUtility.createUser(username, "password", List.of(UserRole.USER));
+            User user = testUtility.getOrCreateUser(username, "password", List.of(UserRole.USER));
             Token token = testUtility.createToken(user, TokenType.REFRESH, Instant.now().minusSeconds(1));
 
             RefreshRequest refreshRequest = new RefreshRequest(user.getId(), token.getValue());
-            mockMvc.perform(post("/api/v1/refresh")
+            mockMvc.perform(post("/api/v1/auth/refresh")
                             .contentType(MediaType.APPLICATION_JSON)
                             .accept(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(refreshRequest)))
                     .andDo(print())
                     .andExpect(status().isUnauthorized());
         }
+    }
+
+    @Test
+    void logout() throws Exception {
+        String username = "username" + new Random().nextInt(1000);
+        String password = "password";
+        RegisterRequest registerRequest = new RegisterRequest(username, password);
+
+        mockMvc.perform(post("/api/v1/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isOk());
+
+        LoginRequest loginRequest = new LoginRequest(username, password);
+        MvcResult response = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String body = response.getResponse().getContentAsString();
+        LoginResponse loginResponse = objectMapper.readValue(body, LoginResponse.class);
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + loginResponse.accessToken()))
+                .andExpect(status().isNoContent());
+
+        // refresh should fail because of logout
+
+        RefreshRequest refreshRequest = new RefreshRequest(loginResponse.id(), loginResponse.accessToken());
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(refreshRequest)))
+                .andDo(print())
+                .andExpect(status().isUnauthorized());
     }
 }

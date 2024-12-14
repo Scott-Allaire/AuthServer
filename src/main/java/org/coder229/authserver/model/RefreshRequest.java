@@ -7,5 +7,5 @@ public record RefreshRequest(
         @NotNull
         Long userId,
         @NotBlank
-        String refreshToken) {
+        String accessToken) {
 }

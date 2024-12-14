@@ -2,11 +2,13 @@ package org.coder229.authserver.persistence;
 
 import jakarta.persistence.*;
 import org.coder229.authserver.model.TokenType;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.Instant;
 
 @Entity
-@Table(name = "token")
+@Table(name = "auth_token")
 public class Token extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -17,6 +19,12 @@ public class Token extends BaseEntity {
 
     private String value;
     private Instant expires;
+
+    @CreationTimestamp
+    private Instant created;
+
+    @UpdateTimestamp
+    private Instant updated;
 
     @ManyToOne
     private User user;
@@ -60,5 +68,21 @@ public class Token extends BaseEntity {
 
     public void setUser(User user) {
         this.user = user;
+    }
+
+    public Instant getCreated() {
+        return created;
+    }
+
+    public void setCreated(Instant created) {
+        this.created = created;
+    }
+
+    public Instant getUpdated() {
+        return updated;
+    }
+
+    public void setUpdated(Instant updated) {
+        this.updated = updated;
     }
 }

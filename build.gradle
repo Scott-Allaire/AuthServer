@@ -7,7 +7,12 @@ plugins {
 
 group = 'org.coder229'
 version = '0.0.1-SNAPSHOT'
-sourceCompatibility = '17'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
 
 configurations {
     compileOnly {
@@ -34,7 +39,7 @@ dependencies {
     implementation 'org.springframework.security:spring-security-crypto'
     implementation 'org.liquibase:liquibase-core'
 
-    runtimeOnly 'org.mariadb.jdbc:mariadb-java-client:3.3.0'
+    runtimeOnly 'com.mysql:mysql-connector-j'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
 
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
@@ -52,4 +57,36 @@ test {
 
 jacocoTestReport {
     dependsOn test
+
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                    "**/persistence/**",
+                    "**/*Application.class",
+                    "**/config/*"
+            ])
+        }))
+    }
 }
+
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                minimum = 0.99
+            }
+        }
+    }
+
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                    "**/persistence/**",
+                    "**/*Application.class",
+                    "**/config/*"
+            ])
+        }))
+    }
+}
+
+check.dependsOn jacocoTestCoverageVerification

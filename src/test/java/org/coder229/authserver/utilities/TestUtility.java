@@ -13,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
@@ -30,12 +32,6 @@ public class TestUtility {
     private RoleRepository roleRepository;
     @Autowired
     private TokenRepository tokenRepository;
-
-    public User createUser(String username, String password, List<UserRole> roles) {
-        User user = createUser(username, password);
-        user.setRoles(getRoles(roles));
-        return userRepository.save(user);
-    }
 
     public Token createToken(User user, TokenType tokenType, Instant expires) {
         String value = tokenType.equals(TokenType.REFRESH) ?
@@ -60,13 +56,18 @@ public class TestUtility {
         return builder.sign(hs256);
     }
 
-    private User createUser(String username, String password) {
-        User user = new User();
-        user.setUsername(username);
-        user.setPassword(BCrypt.hashpw(password, serviceConfig.getSalt()));
-        user.setEnabled(true);
-        user.setVerified(true);
-        return userRepository.save(user);
+    public User getOrCreateUser(String username, String password, List<UserRole> roles) {
+        return userRepository.findByUsername(username)
+                .orElseGet(() -> {
+                    User user = new User();
+                    user.setUsername(username);
+                    user.setPassword(BCrypt.hashpw(password, serviceConfig.getSalt()));
+                    user.setEnabled(true);
+                    user.setVerified(true);
+                    user.setExpires(LocalDateTime.now().plusMinutes(15).toInstant(ZoneOffset.UTC));
+                    user.setRoles(getRoles(roles));
+                    return userRepository.save(user);
+                });
     }
 
     private Set<Role> getRoles(List<UserRole> roles) {

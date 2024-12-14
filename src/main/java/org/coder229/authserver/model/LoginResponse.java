@@ -4,6 +4,5 @@ import java.time.Instant;
 
 public record LoginResponse(Long id,
                             String accessToken,
-                            String refreshToken,
                             Instant expires) {
 }

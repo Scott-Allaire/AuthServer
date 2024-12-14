@@ -1,12 +1,15 @@
 package org.coder229.authserver.persistence;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Table(name = "user")
+@Table(name = "auth_user")
 public class User extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -16,10 +19,17 @@ public class User extends BaseEntity {
     private String password;
     private Boolean enabled;
     private Boolean verified;
+    private Instant expires;
+
+    @CreationTimestamp
+    private Instant created;
+
+    @UpdateTimestamp
+    private Instant updated;
 
     @ManyToMany(targetEntity = Role.class, fetch = FetchType.EAGER)
     @JoinTable(
-            name="user_role",
+            name="auth_user_role",
             joinColumns=
             @JoinColumn(name="user_id", referencedColumnName="id"),
             inverseJoinColumns=
@@ -67,6 +77,30 @@ public class User extends BaseEntity {
         this.verified = verified;
     }
 
+    public Instant getExpires() {
+        return expires;
+    }
+
+    public void setExpires(Instant expires) {
+        this.expires = expires;
+    }
+
+    public Instant getCreated() {
+        return created;
+    }
+
+    public void setCreated(Instant created) {
+        this.created = created;
+    }
+
+    public Instant getUpdated() {
+        return updated;
+    }
+
+    public void setUpdated(Instant updated) {
+        this.updated = updated;
+    }
+
     public Set<Role> getRoles() {
         return roles;
     }
@@ -79,7 +113,7 @@ public class User extends BaseEntity {
     public String toString() {
         return "User{" +
                 "id=" + getId() + "," +
-                "username=" + getUsername() + "" +
-                "}";
+                "username=" + getUsername() + "," +
+                "expires=" + getExpires() + "}";
     }
 }
